@@ -1,0 +1,15 @@
+{
+  "name": "Burguer Master Delivery",
+  "short_name": "BurguerMaster",
+  "start_url": "index.html",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#ffcc00",
+  "icons": [
+    {
+      "src": "https://cdn-icons-png.flaticon.com/512/5787/5787016.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
