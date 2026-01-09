@@ -1,4 +1,3 @@
-// --- SEU CÓDIGO ORIGINAL MANTIDO ---
 document.addEventListener("touchstart", function() {}, true);
 
 const WHATSAPP_CONTATO = "5531991115883";
@@ -69,18 +68,28 @@ let categoriaAtual = "";
 let qtdPrincipal = 1;
 let adicionaisSelecionados = {};
 let resgateAtivo = false;
+let intervaloCronometro = null;
 
-// --- FIREBASE ORIGINAL ---
+// --- ENVIO ---
 function enviarPedidoFidelidade(meuID, endereco, pagamento, total) {
     if (typeof db !== "undefined") {
-        const nomeCliente = localStorage.getItem('vienna_nome') || "Cliente";
+        let nomeCliente = localStorage.getItem('vienna_nome');
+        if (!nomeCliente || nomeCliente === "undefined" || nomeCliente === "null") {
+            nomeCliente = prompt("Qual o seu nome para o pedido?");
+            if (nomeCliente) localStorage.setItem('vienna_nome', nomeCliente);
+            else nomeCliente = "Cliente Novo";
+        }
         const resumoItens = carrinho.map(i => {
             let texto = `${i.qtd}x ${i.nome}`;
             if (i.ads) texto += ` [Ads: ${i.ads}]`;
             if (i.obs) texto += ` (Obs: ${i.obs})`;
             return texto;
         }).join(' | ');
-
+        const contemBrinde = resumoItens.includes("🎁");
+        db.collection("clientes").doc(meuID).set({
+            nome: nomeCliente,
+            ultimaAtualizacao: firebase.firestore.FieldValue.serverTimestamp()
+        }, { merge: true });
         db.collection("pedidos").add({
             cliente_id: meuID,
             nome: nomeCliente,
@@ -89,19 +98,17 @@ function enviarPedidoFidelidade(meuID, endereco, pagamento, total) {
             pagamento: pagamento,
             total: total,
             status: "novo",
+            is_resgate: contemBrinde,
             data: firebase.firestore.FieldValue.serverTimestamp()
-        })
-        .then(() => console.log("✅ Pedido enviado ao painel!"))
-        .catch(err => console.error("❌ Erro ao enviar:", err));
+        });
     }
 }
 
-// --- CATEGORIAS ---
+// --- NAVEGAÇÃO ---
 function renderizarCategorias() {
+    if(intervaloCronometro) clearInterval(intervaloCronometro);
     document.getElementById('btn-voltar').style.display = "none";
     const container = document.getElementById('conteudo-principal');
-    if(!container) return;
-    
     let html = `<div class="grid-categorias">`;
     for (let cat in cardapioDados) {
         const extraClass = (cat === "Vienna do Dia") ? "destaque-promo" : "";
@@ -110,14 +117,11 @@ function renderizarCategorias() {
                     <span>${cat}</span>
                  </div>`;
     }
-
-    html += `
-        <div class="card-categoria destaque-fidelidade" onclick="renderizarPainelFidelidade()">
-            <i class="fa fa-award"></i>
-            <span>Fidelidade</span>
-        </div>`;
-    
-    container.innerHTML = html + `</div>`;
+    html += `<div class="card-categoria destaque-fidelidade" onclick="renderizarPainelFidelidade()">
+                <i class="fa fa-award"></i>
+                <span>Fidelidade</span>
+             </div></div>`;
+    container.innerHTML = html;
 }
 
 // --- PRODUTOS ---
@@ -141,22 +145,17 @@ function renderizarProdutos(cat) {
     container.innerHTML = html;
 }
 
-// --- MODAL PRODUTO ---
+// --- MODAL E CARRINHO ---
 function abrirModalManual(cat, id) {
     produtoAtual = cardapioDados[cat].produtos.find(x => x.id === id);
-    categoriaAtual = cat; 
-    qtdPrincipal = 1; 
-    adicionaisSelecionados = {};
-    
+    categoriaAtual = cat; qtdPrincipal = 1; adicionaisSelecionados = {};
     document.getElementById('detalhe-nome').innerText = produtoAtual.nome;
     document.getElementById('detalhe-desc').innerText = produtoAtual.desc;
     document.getElementById('qtd-produto').innerText = qtdPrincipal;
     document.getElementById('observacao-produto').value = "";
-    
     const secaoAds = document.getElementById('secao-adicionais-container');
     if (cat === "Bebidas" || cat === "Combos") secaoAds.style.display = "none";
     else { secaoAds.style.display = "block"; renderAdicionais(); }
-    
     atualizarTotalModal();
     document.getElementById('modal-produto').style.display = "flex";
 }
@@ -204,13 +203,7 @@ function confirmarAdicao() {
             extra += ad.preco * adicionaisSelecionados[id];
         }
     }
-    carrinho.push({ 
-        nome: produtoAtual.nome, 
-        qtd: qtdPrincipal, 
-        total: (produtoAtual.preco + extra) * qtdPrincipal, 
-        ads: ads.join(', '), 
-        obs: document.getElementById('observacao-produto').value 
-    });
+    carrinho.push({ nome: produtoAtual.nome, qtd: qtdPrincipal, total: (produtoAtual.preco + extra) * qtdPrincipal, ads: ads.join(', '), obs: document.getElementById('observacao-produto').value });
     document.getElementById('cart-count').innerText = carrinho.length;
     document.getElementById('cart-fab').style.display = "flex";
     fecharModalProduto();
@@ -241,41 +234,31 @@ function remover(idx) {
     if(carrinho.length === 0) { document.getElementById('cart-fab').style.display = "none"; fecharCarrinho(); } else { abrirCarrinho(); }
 }
 
-// --- WHATSAPP ---
 function enviarWhatsApp() {
     const endereco = document.getElementById('endereco').value;
     const pagamento = document.getElementById('pagamento').value;
     const totalTexto = document.getElementById('valor-total').innerText;
     const meuID = localStorage.getItem('vienna_id') || "Sem ID";
     const nomeCliente = localStorage.getItem('vienna_nome') || "Cliente";
-
     if(!endereco) return alert("Por favor, informe o endereço!");
-
     enviarPedidoFidelidade(meuID, endereco, pagamento, totalTexto);
-
-    let msg = `*NOVO PEDIDO VIENNA*\n`;
-    msg += `*CLIENTE:* ${nomeCliente}\n\n`;
+    let msg = `*NOVO PEDIDO VIENNA*\n*CLIENTE:* ${nomeCliente}\n\n`;
     carrinho.forEach(i => {
         msg += `*${i.qtd}x ${i.nome}*\n`;
         if(i.ads) msg += ` - Ads: ${i.ads}\n`;
         if(i.obs) msg += ` - Obs: ${i.obs}\n`;
     });
-    msg += `\n*Total:* ${totalTexto}\n*Endereço:* ${endereco}\n*Pagamento:* ${pagamento}\n*ID:* ${meuID}`;
-
+    msg += `\n*Total:* ${totalTexto}\n*Endereço:* ${endereco}\n*Pagamento:* ${pagamento}`;
     window.open(`https://wa.me/${WHATSAPP_CONTATO}?text=${encodeURIComponent(msg)}`);
-
     setTimeout(() => {
-        carrinho = [];
-        resgateAtivo = false;
+        carrinho = []; resgateAtivo = false;
         document.getElementById('cart-count').innerText = "0";
         document.getElementById('cart-fab').style.display = "none";
-        fecharCarrinho();
-        renderizarCategorias();
-        alert("✅ Pedido realizado com sucesso!");
+        fecharCarrinho(); renderizarCategorias();
     }, 1000);
 }
 
-// --- FIDELIDADE ATUALIZADO ---
+// --- FIDELIDADE COM SEGURANÇA E CRONÔMETRO ---
 async function renderizarPainelFidelidade() {
     window.scrollTo(0,0);
     document.getElementById('btn-voltar').style.display = "flex";
@@ -286,16 +269,40 @@ async function renderizarPainelFidelidade() {
     container.innerHTML = `<div style="text-align:center; padding:50px;"><i class="fa fa-spinner fa-spin fa-2x" style="color:#8b1a1a;"></i><p>Sincronizando...</p></div>`;
 
     let selosAtuais = 0;
+    let htmlAviso = `<div style="background:#fff3cd; color:#856404; padding:10px; border-radius:10px; margin-bottom:15px; font-size:0.85rem;">⏳ Complete 10 selos em até 30 dias após o 1º selo!</div>`;
+
     if (typeof db !== "undefined" && meuID) {
         try {
             const doc = await db.collection("clientes").doc(meuID).get();
             if (doc.exists) {
-                selosAtuais = doc.data().selos || 0;
+                const dados = doc.data();
+                selosAtuais = dados.selos || 0;
+                let dataInicioRaw = dados.data_primeiro_selo;
+
+                // SE TEM SELOS MAS NÃO TEM DATA NO BANCO, CRIA AGORA (SEGURANÇA)
+                if (selosAtuais > 0 && !dataInicioRaw) {
+                   await db.collection("clientes").doc(meuID).update({
+                       data_primeiro_selo: firebase.firestore.FieldValue.serverTimestamp()
+                   });
+                   // Recarrega o dado para o código seguir
+                   const docRetry = await db.collection("clientes").doc(meuID).get();
+                   dataInicioRaw = docRetry.data().data_primeiro_selo;
+                }
+
+                if (dataInicioRaw && selosAtuais > 0) {
+                    const dataFormatada = dataInicioRaw.toDate ? dataInicioRaw.toDate() : new Date(dataInicioRaw);
+                    const dataExpiracao = new Date(dataFormatada.getTime() + (30 * 24 * 60 * 60 * 1000));
+                    
+                    htmlAviso = `
+                        <div id="box-cronometro" style="background:#fff3cd; color:#856404; padding:15px; border-radius:15px; margin-bottom:15px; border: 1px solid #ffeeba;">
+                            <div style="font-size:0.75rem; text-transform:uppercase; font-weight:bold; margin-bottom:5px;">Tempo restante:</div>
+                            <div id="contagem-regressiva" style="font-size:1.4rem; font-weight:900; font-family:monospace;">Calculando...</div>
+                        </div>`;
+                    setTimeout(() => iniciarContador(dataExpiracao, meuID), 200);
+                }
                 localStorage.setItem('vienna_qtd_selos', selosAtuais);
             }
-        } catch (error) {
-            selosAtuais = parseInt(localStorage.getItem('vienna_qtd_selos')) || 0;
-        }
+        } catch (e) { console.error(e); }
     }
 
     let selosHtml = '';
@@ -303,13 +310,12 @@ async function renderizarPainelFidelidade() {
         selosHtml += `<div class="caixa-selo ${i <= selosAtuais ? 'selo-ativo' : 'selo-vazio'}"><i class="fa fa-certificate"></i><span class="num-selo">${i}</span></div>`;
     }
 
-    // BOTÃO DOURADO PARA RESGATE
-    const botaoResgate = (selosAtuais >= 10) ? 
-        `<button onclick="ativarResgate()" style="width:100%; padding:20px; background:#ffc107; color:#000; border:none; border-radius:15px; font-weight:900; margin-bottom:15px; box-shadow: 0 4px 10px rgba(0,0,0,0.2);">✨ CONCLUIR PROMOÇÃO ✨</button>` : '';
+    const botaoResgate = (selosAtuais >= 10) ? `<button onclick="ativarResgate()" style="width:100%; padding:20px; background:#ffc107; color:#000; border:none; border-radius:15px; font-weight:900; margin-bottom:15px;">✨ RESGATAR MEU PRÊMIO ✨</button>` : '';
 
     container.innerHTML = `
-        <div class="painel-fidelidade-vienna" style="text-align:center; padding:20px;">
+        <div style="text-align:center; padding:20px;">
             <h2 style="color:#8b1a1a;">Olá, ${nomeSalvo}!</h2>
+            ${htmlAviso}
             <p>Você tem <strong>${selosAtuais}</strong> selos</p>
             <div class="grid-selos" style="display:grid; grid-template-columns: repeat(5, 1fr); gap:10px; margin-bottom:20px;">${selosHtml}</div>
             ${botaoResgate}
@@ -318,47 +324,52 @@ async function renderizarPainelFidelidade() {
         </div>`;
 }
 
+function iniciarContador(dataFim, clienteID) {
+    if(intervaloCronometro) clearInterval(intervaloCronometro);
+    const atualizar = () => {
+        const agora = new Date().getTime();
+        const dist = dataFim.getTime() - agora;
+        const display = document.getElementById("contagem-regressiva");
+        if (!display) { clearInterval(intervaloCronometro); return; }
+        if (dist <= 0) {
+            display.innerHTML = "EXPIRADO!";
+            db.collection("clientes").doc(clienteID).update({ selos: 0, data_primeiro_selo: null });
+            clearInterval(intervaloCronometro);
+            return;
+        }
+        const d = Math.floor(dist / (1000 * 60 * 60 * 24));
+        const h = Math.floor((dist % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+        const m = Math.floor((dist % (1000 * 60 * 60)) / (1000 * 60));
+        const s = Math.floor((dist % (1000 * 60)) / 1000);
+        display.innerHTML = `${d}d ${h}h ${m}m ${s}s`;
+    };
+    atualizar();
+    intervaloCronometro = setInterval(atualizar, 1000);
+}
+
+// --- RESGATE ---
 function ativarResgate() {
-    if(resgateAtivo) return alert("Você já adicionou um prêmio ao carrinho!");
+    if(resgateAtivo) return alert("Prêmio já no carrinho!");
     const container = document.getElementById('conteudo-principal');
     container.innerHTML = `
-        <h2 style="text-align:center; color:#8b1a1a; margin-bottom:20px;">Escolha seu Prêmio!</h2>
-        <div class="card-item" onclick="finalizarSelecaoPremio('Vienna Burger')">
-            <div style="flex:1;"><h3>Vienna Burger</h3><span style="color:green;font-weight:bold;">GRÁTIS</span></div>
-            <div class="item-foto"><img src="art1.jpg"></div>
-        </div>
-        <div class="card-item" onclick="finalizarSelecaoPremio('Açaí 500ml')">
-            <div style="flex:1;"><h3>Açaí 500ml</h3><span style="color:green;font-weight:bold;">GRÁTIS</span></div>
-            <div class="item-foto"><img src="acai500.jpg"></div>
-        </div>
-        <button onclick="renderizarPainelFidelidade()" style="width:100%; margin-top:20px; padding:15px; border:none; background:#eee; border-radius:10px;">VOLTAR</button>
-    `;
+        <h2 style="text-align:center; color:#8b1a1a;">Escolha seu Prêmio!</h2>
+        <div class="card-item" onclick="finalizarSelecaoPremio('Vienna Burger')"><h3>Vienna Burger</h3><span style="color:green;font-weight:bold;">GRÁTIS</span></div>
+        <div class="card-item" onclick="finalizarSelecaoPremio('Açaí 500ml')"><h3>Açaí 500ml</h3><span style="color:green;font-weight:bold;">GRÁTIS</span></div>
+        <button onclick="renderizarPainelFidelidade()" style="width:100%; margin-top:20px; padding:15px; border:none; background:#eee; border-radius:10px;">VOLTAR</button>`;
 }
 
 function finalizarSelecaoPremio(nome) {
-    // Adiciona o prêmio sem zerar no Firebase aqui. O reset será feito quando você concluir o pedido no seu painel.
-    carrinho.push({ 
-        nome: "🎁 PRÊMIO: " + nome, 
-        qtd: 1, 
-        total: 0, 
-        ads: "VALE 10 SELOS", 
-        obs: "Resgate Fidelidade pendente de conclusão" 
-    });
-    resgateAtivo = true;
-    document.getElementById('cart-count').innerText = carrinho.length;
+    carrinho.push({ nome: "🎁 PRÊMIO: " + nome, qtd: 1, total: 0, ads: "VALE 10 SELOS", obs: "Resgate" });
+    resgateAtivo = true; document.getElementById('cart-count').innerText = carrinho.length;
     document.getElementById('cart-fab').style.display = "flex";
     renderizarCategorias();
-    alert("Prêmio adicionado! Os selos serão descontados após a confirmação do pedido.");
 }
 
 function checkHorario() {
     const h = new Date().getHours();
     const aberto = (h >= 18 || h < 6);
     const st = document.getElementById('status-loja');
-    if(st) { 
-        st.innerText = aberto ? "● ABERTO" : "○ FECHADO"; 
-        st.style.color = aberto ? "#25d366" : "red"; 
-    }
+    if(st) { st.innerText = aberto ? "● ABERTO" : "○ FECHADO"; st.style.color = aberto ? "#25d366" : "red"; }
 }
 
 renderizarCategorias();
