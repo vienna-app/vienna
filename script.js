@@ -1,3 +1,4 @@
+// --- SEU CÓDIGO ORIGINAL MANTIDO ---
 document.addEventListener("touchstart", function() {}, true);
 
 const WHATSAPP_CONTATO = "5531991115883";
@@ -67,8 +68,9 @@ let produtoAtual = null;
 let categoriaAtual = "";
 let qtdPrincipal = 1;
 let adicionaisSelecionados = {};
+let resgateAtivo = false;
 
-// --- FIREBASE ---
+// --- FIREBASE ORIGINAL ---
 function enviarPedidoFidelidade(meuID, endereco, pagamento, total) {
     if (typeof db !== "undefined") {
         const nomeCliente = localStorage.getItem('vienna_nome') || "Cliente";
@@ -214,7 +216,6 @@ function confirmarAdicao() {
     fecharModalProduto();
 }
 
-// --- CARRINHO ---
 function fecharModalProduto() { document.getElementById('modal-produto').style.display = "none"; }
 function fecharCarrinho() { document.getElementById('modal-carrinho').style.display = "none"; }
 
@@ -240,7 +241,7 @@ function remover(idx) {
     if(carrinho.length === 0) { document.getElementById('cart-fab').style.display = "none"; fecharCarrinho(); } else { abrirCarrinho(); }
 }
 
-// --- WHATSAPP COM FINALIZAÇÃO ---
+// --- WHATSAPP ---
 function enviarWhatsApp() {
     const endereco = document.getElementById('endereco').value;
     const pagamento = document.getElementById('pagamento').value;
@@ -250,10 +251,8 @@ function enviarWhatsApp() {
 
     if(!endereco) return alert("Por favor, informe o endereço!");
 
-    // Enviar ao Firebase
     enviarPedidoFidelidade(meuID, endereco, pagamento, totalTexto);
 
-    // Montar mensagem
     let msg = `*NOVO PEDIDO VIENNA*\n`;
     msg += `*CLIENTE:* ${nomeCliente}\n\n`;
     carrinho.forEach(i => {
@@ -263,21 +262,20 @@ function enviarWhatsApp() {
     });
     msg += `\n*Total:* ${totalTexto}\n*Endereço:* ${endereco}\n*Pagamento:* ${pagamento}\n*ID:* ${meuID}`;
 
-    // Abrir WhatsApp
     window.open(`https://wa.me/${WHATSAPP_CONTATO}?text=${encodeURIComponent(msg)}`);
 
-    // --- RESET E NOTIFICAÇÃO ---
     setTimeout(() => {
         carrinho = [];
+        resgateAtivo = false;
         document.getElementById('cart-count').innerText = "0";
         document.getElementById('cart-fab').style.display = "none";
         fecharCarrinho();
         renderizarCategorias();
-        alert("✅ Pedido realizado com sucesso! Sua mensagem foi enviada.");
+        alert("✅ Pedido realizado com sucesso!");
     }, 1000);
 }
 
-// --- FIDELIDADE ---
+// --- FIDELIDADE ATUALIZADO ---
 async function renderizarPainelFidelidade() {
     window.scrollTo(0,0);
     document.getElementById('btn-voltar').style.display = "flex";
@@ -305,14 +303,52 @@ async function renderizarPainelFidelidade() {
         selosHtml += `<div class="caixa-selo ${i <= selosAtuais ? 'selo-ativo' : 'selo-vazio'}"><i class="fa fa-certificate"></i><span class="num-selo">${i}</span></div>`;
     }
 
+    // BOTÃO DOURADO PARA RESGATE
+    const botaoResgate = (selosAtuais >= 10) ? 
+        `<button onclick="ativarResgate()" style="width:100%; padding:20px; background:#ffc107; color:#000; border:none; border-radius:15px; font-weight:900; margin-bottom:15px; box-shadow: 0 4px 10px rgba(0,0,0,0.2);">✨ CONCLUIR PROMOÇÃO ✨</button>` : '';
+
     container.innerHTML = `
         <div class="painel-fidelidade-vienna" style="text-align:center; padding:20px;">
             <h2 style="color:#8b1a1a;">Olá, ${nomeSalvo}!</h2>
             <p>Você tem <strong>${selosAtuais}</strong> selos</p>
-            <div class="grid-selos" style="display:grid; grid-template-columns: repeat(5, 1fr); gap:10px; margin:20px 0;">${selosHtml}</div>
-            <small>ID: ${meuID}</small><br><br>
-            <button onclick="renderizarCategorias()" style="padding:10px 20px; background:#666; color:white; border:none; border-radius:10px;">VOLTAR</button>
+            <div class="grid-selos" style="display:grid; grid-template-columns: repeat(5, 1fr); gap:10px; margin-bottom:20px;">${selosHtml}</div>
+            ${botaoResgate}
+            <small style="color:#999;">ID: ${meuID}</small><br><br>
+            <button onclick="renderizarCategorias()" style="padding:10px 20px; background:#666; color:white; border:none; border-radius:10px; font-weight:bold;">VOLTAR AO MENU</button>
         </div>`;
+}
+
+function ativarResgate() {
+    if(resgateAtivo) return alert("Você já adicionou um prêmio ao carrinho!");
+    const container = document.getElementById('conteudo-principal');
+    container.innerHTML = `
+        <h2 style="text-align:center; color:#8b1a1a; margin-bottom:20px;">Escolha seu Prêmio!</h2>
+        <div class="card-item" onclick="finalizarSelecaoPremio('Vienna Burger')">
+            <div style="flex:1;"><h3>Vienna Burger</h3><span style="color:green;font-weight:bold;">GRÁTIS</span></div>
+            <div class="item-foto"><img src="art1.jpg"></div>
+        </div>
+        <div class="card-item" onclick="finalizarSelecaoPremio('Açaí 500ml')">
+            <div style="flex:1;"><h3>Açaí 500ml</h3><span style="color:green;font-weight:bold;">GRÁTIS</span></div>
+            <div class="item-foto"><img src="acai500.jpg"></div>
+        </div>
+        <button onclick="renderizarPainelFidelidade()" style="width:100%; margin-top:20px; padding:15px; border:none; background:#eee; border-radius:10px;">VOLTAR</button>
+    `;
+}
+
+function finalizarSelecaoPremio(nome) {
+    // Adiciona o prêmio sem zerar no Firebase aqui. O reset será feito quando você concluir o pedido no seu painel.
+    carrinho.push({ 
+        nome: "🎁 PRÊMIO: " + nome, 
+        qtd: 1, 
+        total: 0, 
+        ads: "VALE 10 SELOS", 
+        obs: "Resgate Fidelidade pendente de conclusão" 
+    });
+    resgateAtivo = true;
+    document.getElementById('cart-count').innerText = carrinho.length;
+    document.getElementById('cart-fab').style.display = "flex";
+    renderizarCategorias();
+    alert("Prêmio adicionado! Os selos serão descontados após a confirmação do pedido.");
 }
 
 function checkHorario() {

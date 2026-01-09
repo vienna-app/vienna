@@ -52,6 +52,7 @@ header {
     margin-top: 5px; 
 }
 
+/* CENTRALIZAÇÃO E LATERAIS */
 .container { 
     padding: 20px; 
     max-width: 600px; 
@@ -75,18 +76,16 @@ header {
     transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275), background 0.4s ease;
 }
 
-/* VIENNA DO DIA - ESTRELA AMARELA */
 .destaque-promo { 
     background: #fff5f5; 
     border: 2px solid var(--vienna-red); 
 }
 
 .destaque-promo i {
-    color: var(--gold) !important; /* Estrela volta a ser amarela */
+    color: var(--gold) !important; 
     text-shadow: 0 0 5px rgba(255, 193, 7, 0.3);
 }
 
-/* FIDELIDADE NO MENU */
 .card-categoria.destaque-fidelidade {
     background: linear-gradient(135deg, #1a1a1a 0%, #333 100%);
     border: 2px solid var(--gold);
@@ -163,7 +162,7 @@ header {
     font-size: 1.1rem; 
 }
 
-/* --- PAINEL DE FIDELIDADE (Sincronizado) --- */
+/* --- PAINEL DE FIDELIDADE --- */
 .grid-selos { 
     display: grid; 
     grid-template-columns: repeat(5, 1fr); 
@@ -219,10 +218,9 @@ header {
     padding: 25px; 
     max-height: 90vh; 
     overflow-y: auto; 
-    position: relative; /* Necessário para o botão fechar se posicionar */
+    position: relative; 
 }
 
-/* BOTÃO FECHAR (X) - GRANDE E VERMELHO */
 .btn-fechar {
     position: absolute;
     top: 15px;
@@ -241,16 +239,6 @@ header {
     justify-content: center;
     z-index: 100;
     box-shadow: 0 4px 8px rgba(0,0,0,0.2);
-}
-
-.btn-fechar:active {
-    transform: scale(0.9);
-}
-
-/* BOTÃO ADICIONAR (LARGURA TOTAL) */
-.modal-footer-acao {
-    width: 100%;
-    margin-top: 20px;
 }
 
 .btn-confirmar { 
@@ -313,7 +301,6 @@ header {
     padding: 18px; 
     border-radius: 15px; 
     font-weight: 900; 
-    font-size: 1rem; 
 }
 
 input, select, textarea { 
@@ -322,7 +309,6 @@ input, select, textarea {
     margin-bottom: 10px; 
     border: 1px solid #ddd; 
     border-radius: 10px; 
-    font-family: inherit; 
 }
 
 .voltar-container { 

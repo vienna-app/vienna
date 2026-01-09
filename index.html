@@ -23,7 +23,6 @@
     </script>
 
     <style>
-        /* Estilos específicos para a entrada de nome */
         #modal-nome {
             display: none;
             position: fixed;
@@ -72,8 +71,8 @@
     </header>
 
     <main class="container">
-        <div id="btn-voltar" class="voltar-container" style="display:none;">
-            <i class="fa fa-chevron-left"></i> Voltar para Categorias
+        <div id="btn-voltar" class="voltar-container" style="display:none;" onclick="renderizarCategorias()">
+            <i class="fa fa-chevron-left"></i> Voltar
         </div>
         
         <div id="conteudo-principal"></div>
@@ -155,10 +154,11 @@
         </div>
     </div>
 
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    
     <script src="script.js"></script>
     
     <script>
-        // Lógica de Inicialização (Nome e ID)
         window.addEventListener('load', () => {
             const nomeSalvo = localStorage.getItem('vienna_nome');
             if (!nomeSalvo) {
