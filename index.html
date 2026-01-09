@@ -11,19 +11,57 @@
     <script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-firestore-compat.js"></script>
 
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyBp3XjkW_QnPIYZ2zwkpqxPvXx8rC3hQPI",
+            authDomain: "vienna-f81fb.firebaseapp.com",
+            projectId: "vienna-f81fb",
+            appId: "1:414979620310:web:3370a528aa578a0c613877"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+    </script>
+
     <style>
-        /* Estilo rápido para o aviso de expiração */
-        .aviso-validade {
-            font-size: 0.7rem;
-            color: #8b1a1a;
-            margin-top: 10px;
-            font-weight: bold;
-            text-transform: uppercase;
-            letter-spacing: 1px;
+        /* Estilos específicos para a entrada de nome */
+        #modal-nome {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.9);
+            z-index: 9999;
+            align-items: center;
+            justify-content: center;
+        }
+        .modal-nome-content {
+            background: white;
+            padding: 30px;
+            border-radius: 20px;
+            width: 85%;
+            max-width: 400px;
+            text-align: center;
+        }
+        .modal-nome-content input {
+            width: 100%;
+            padding: 12px;
+            margin: 20px 0;
+            border: 2px solid #ddd;
+            border-radius: 10px;
+            font-family: 'Montserrat', sans-serif;
+            text-align: center;
         }
     </style>
 </head>
 <body>
+
+    <div id="modal-nome">
+        <div class="modal-nome-content">
+            <h2 style="color: #8b1a1a;">Bem-vindo!</h2>
+            <p>Como podemos te chamar?</p>
+            <input type="text" id="nome-cliente-input" placeholder="Seu nome completo">
+            <button class="btn-finalizar" onclick="salvarNomeInicial()">COMEÇAR</button>
+        </div>
+    </div>
 
     <header>
         <div class="logo-wrapper">
@@ -31,11 +69,10 @@
             <p class="tagline">GASTRONOMIA</p>
         </div>
         <div id="status-loja" class="status-badge">Carregando...</div>
-        <div id="container-extra-header"></div>
     </header>
 
     <main class="container">
-        <div id="btn-voltar" class="voltar-container" style="display:none;" onclick="renderizarCategorias()">
+        <div id="btn-voltar" class="voltar-container" style="display:none;">
             <i class="fa fa-chevron-left"></i> Voltar para Categorias
         </div>
         
@@ -44,22 +81,21 @@
 
     <div id="modal-produto" class="modal">
         <div class="modal-content">
-            <div class="modal-header">
-                <h3 id="detalhe-nome">Nome</h3>
-                <span class="close-btn" onclick="fecharModalProduto()">&times;</span>
-            </div>
-            <p id="detalhe-desc" class="desc-produto"></p>
+            <button class="btn-fechar" onclick="fecharModalProduto()">&times;</button>
+            
+            <h3 id="detalhe-nome" style="margin-top: 10px;">Nome</h3>
+            <p id="detalhe-desc" class="desc-produto" style="color: #666; font-size: 0.9rem; margin-bottom: 20px;"></p>
             
             <div id="secao-adicionais-container">
                 <div class="secao-modal">
-                    <h4 id="titulo-adicionais">ADICIONAIS</h4>
+                    <h4 id="titulo-adicionais" style="border-bottom: 1px solid #eee; padding-bottom: 5px;">ADICIONAIS</h4>
                     <div id="lista-adicionais"></div>
                 </div>
             </div>
 
             <div class="secao-modal" style="margin-top: 20px;">
                 <h4>OBSERVAÇÕES</h4>
-                <textarea id="observacao-produto" placeholder="Ex: Sem cebola, gelado, etc."></textarea>
+                <textarea id="observacao-produto" placeholder="Ex: Sem cebola, ponto da carne, etc."></textarea>
             </div>
 
             <div class="modal-footer-acao">
@@ -79,43 +115,72 @@
     <div class="cart-fab" id="cart-fab" onclick="abrirCarrinho()" style="display:none;">
         <div class="cart-info">
             <span id="cart-count">0</span>
-            <i class="fa fa-shopping-basket"></i>
+            <i class="fa fa-shopping-basket" style="margin-left: 10px;"></i>
         </div>
         <span class="ver-sacola-texto">Ver Sacola</span>
     </div>
 
     <div id="modal-carrinho" class="modal">
         <div class="modal-content">
-            <div class="modal-header">
-                <h3>Sua Sacola</h3>
-                <span class="close-btn" onclick="fecharCarrinho()">&times;</span>
-            </div>
-            <div id="itens-carrinho"></div>
-            
-            <div class="resumo-financeiro">
-                <div class="linha-resumo"><span>Subtotal</span><span id="subtotal">R$ 0,00</span></div>
-                <div class="linha-resumo"><span>Taxa de Entrega</span><span>R$ 5,00</span></div>
-                <div class="linha-resumo total"><span>TOTAL</span><span id="valor-total">R$ 0,00</span></div>
-            </div>
+            <button class="btn-fechar" onclick="fecharCarrinho()">&times;</button>
 
-            <div id="aviso-agendamento" style="display:none; color:#8b1a1a; font-weight:bold; margin-bottom:15px; text-align:center;">
-                ⚠️ Loja fechada. Pedido será agendado para as 18:00.
+            <h3 style="margin-top: 10px; margin-bottom: 20px;">Sua Sacola</h3>
+            
+            <div id="itens-carrinho" style="max-height: 300px; overflow-y: auto; margin-bottom: 20px;"></div>
+            
+            <div class="resumo-financeiro" style="background: #f9f9f9; padding: 15px; border-radius: 15px; margin-bottom: 20px;">
+                <div style="display:flex; justify-content:space-between; margin-bottom:5px;">
+                    <span>Subtotal</span><span id="subtotal">R$ 0,00</span>
+                </div>
+                <div style="display:flex; justify-content:space-between; margin-bottom:5px;">
+                    <span>Taxa de Entrega</span><span>R$ 5,00</span>
+                </div>
+                <div style="display:flex; justify-content:space-between; font-weight: 900; font-size: 1.2rem; color: #8b1a1a; margin-top: 10px; border-top: 1px dashed #ccc; padding-top: 10px;">
+                    <span>TOTAL</span><span id="valor-total">R$ 0,00</span>
+                </div>
             </div>
 
             <input type="text" id="endereco" placeholder="Endereço Completo (Rua, Nº, Bairro)">
+            
+            <label style="font-size: 0.8rem; font-weight: bold; margin-left: 5px;">FORMA DE PAGAMENTO:</label>
             <select id="pagamento">
-                <option value="Pix">Pix</option>
-                <option value="Cartão">Cartão na entrega</option>
+                <option value="Pix">Pix (Pagamento na Entrega)</option>
+                <option value="Cartão">Cartão (Débito/Crédito na Entrega)</option>
                 <option value="Dinheiro">Dinheiro</option>
             </select>
             
-            <button class="btn-finalizar" onclick="enviarWhatsApp()">
-                FINALIZAR NO WHATSAPP
+            <button class="btn-finalizar" onclick="enviarWhatsApp()" style="margin-top: 10px; background: #25d366;">
+                <i class="fab fa-whatsapp"></i> FINALIZAR NO WHATSAPP
             </button>
         </div>
     </div>
 
     <script src="script.js"></script>
-    <script src="modulos.js"></script>
+    
+    <script>
+        // Lógica de Inicialização (Nome e ID)
+        window.addEventListener('load', () => {
+            const nomeSalvo = localStorage.getItem('vienna_nome');
+            if (!nomeSalvo) {
+                document.getElementById('modal-nome').style.display = 'flex';
+            }
+
+            if (!localStorage.getItem('vienna_id')) {
+                const idUnico = 'V-' + Math.floor(Math.random() * 1000000);
+                localStorage.setItem('vienna_id', idUnico);
+            }
+        });
+
+        function salvarNomeInicial() {
+            const input = document.getElementById('nome-cliente-input');
+            const nome = input.value.trim();
+            if (nome.length < 3) {
+                alert("Por favor, digite seu nome completo.");
+                return;
+            }
+            localStorage.setItem('vienna_nome', nome);
+            document.getElementById('modal-nome').style.display = 'none';
+        }
+    </script>
 </body>
 </html>

@@ -28,7 +28,7 @@ const cardapioDados = {
             { id: 10, nome: "Vienna Burguer (Completo)", preco: 35.00, desc: "Pão, 4 bifes, Alface, tomate, 2 ovos, Cheddar, Catupiri, 2 Mussarela, 2 Presunto, batata, milho, 2 bacon", foto: "completo.jpg" },
             { id: 11, nome: "X-tudo burguer", preco: 28.00, desc: "Pão, 2 bifes, Alface, tomate, ovo, Cheddar, Catupiri, Mussarela, Presunto, batata, milho, bacon", foto: "xtudo.jpg" },
             { id: 12, nome: "X-bacon burguer", preco: 24.00, desc: "2 bifes, Alface, tomate, ovo, Cheddar, Catupiri, Mussarela, batata, milho, bacon", foto: "xbacon.jpg" },
-            { id: 13, nome: "X-egg bacon burguer", preco: 25.00, desc: "2 bifes, Alface, tomate, ovo, queijo, batata, milho, bacon", foto: "xeggbacon.jpg" },
+            { id: 13, nome: "X-egg bacon burguer", preco: 25.00, desc: "2 bifes, Alface, tomate, ovo, Cheddar, Catupiri, Mussarela, batata, milho, bacon", foto: "xeggbacon.jpg" },
             { id: 14, nome: "X-egg buguer", preco: 22.00, desc: "2 bifes, Alface, tomate, ovo, queijo, batata, milho", foto: "xegg.jpg" },
             { id: 15, nome: "Bacon Burguer", preco: 19.00, desc: "Pão, carne, queijo e muito bacon.", foto: "bacon.jpg" },
             { id: 16, nome: "Egg-bacon burguer", preco: 20.00, desc: "Pão, carne, ovo e bacon.", foto: "eggbacon.jpg" },
@@ -68,11 +68,39 @@ let categoriaAtual = "";
 let qtdPrincipal = 1;
 let adicionaisSelecionados = {};
 
+// --- FIREBASE ---
+function enviarPedidoFidelidade(meuID, endereco, pagamento, total) {
+    if (typeof db !== "undefined") {
+        const nomeCliente = localStorage.getItem('vienna_nome') || "Cliente";
+        const resumoItens = carrinho.map(i => {
+            let texto = `${i.qtd}x ${i.nome}`;
+            if (i.ads) texto += ` [Ads: ${i.ads}]`;
+            if (i.obs) texto += ` (Obs: ${i.obs})`;
+            return texto;
+        }).join(' | ');
+
+        db.collection("pedidos").add({
+            cliente_id: meuID,
+            nome: nomeCliente,
+            itens: resumoItens,
+            endereco: endereco,
+            pagamento: pagamento,
+            total: total,
+            status: "novo",
+            data: firebase.firestore.FieldValue.serverTimestamp()
+        })
+        .then(() => console.log("✅ Pedido enviado ao painel!"))
+        .catch(err => console.error("❌ Erro ao enviar:", err));
+    }
+}
+
+// --- CATEGORIAS ---
 function renderizarCategorias() {
     document.getElementById('btn-voltar').style.display = "none";
     const container = document.getElementById('conteudo-principal');
-    let html = `<div class="grid-categorias">`;
+    if(!container) return;
     
+    let html = `<div class="grid-categorias">`;
     for (let cat in cardapioDados) {
         const extraClass = (cat === "Vienna do Dia") ? "destaque-promo" : "";
         html += `<div class="card-categoria ${extraClass}" onclick="renderizarProdutos('${cat}')">
@@ -86,105 +114,32 @@ function renderizarCategorias() {
             <i class="fa fa-award"></i>
             <span>Fidelidade</span>
         </div>`;
-
-    html += `
-        <div class="card-categoria" style="opacity: 0.5; filter: grayscale(1); cursor: default;">
-            <i class="fa fa-pizza-slice"></i>
-            <span>Pizzas<br><small style="font-size:0.5rem">(Em breve)</small></span>
-        </div>
-        <div class="card-categoria" style="opacity: 0.5; filter: grayscale(1); cursor: default;">
-            <i class="fa fa-utensils"></i>
-            <span>Porções<br><small style="font-size:0.5rem">(Em breve)</small></span>
-        </div>`;
     
     container.innerHTML = html + `</div>`;
 }
 
-// --- LOGICA DE FIDELIDADE COM PRAZO DE 30 DIAS ---
-function renderizarPainelFidelidade() {
+// --- PRODUTOS ---
+function renderizarProdutos(cat) {
     window.scrollTo(0,0);
+    categoriaAtual = cat;
     document.getElementById('btn-voltar').style.display = "flex";
     const container = document.getElementById('conteudo-principal');
-    
-    // Recupera dados do LocalStorage (Substituir por Firebase depois)
-    let selosAtuais = parseInt(localStorage.getItem('vienna_qtd_selos')) || 0;
-    let dataInicioStr = localStorage.getItem('vienna_data_primeiro_selo');
-    const meuID = localStorage.getItem('vienna_id') || "---";
-
-    let avisoPrazoHtml = "";
-
-    if (dataInicioStr && selosAtuais > 0) {
-        const dataInicio = new Date(dataInicioStr);
-        const hoje = new Date();
-        const diffTempo = Math.abs(hoje - dataInicio);
-        const diffDias = Math.floor(diffTempo / (1000 * 60 * 60 * 24));
-        const diasRestantes = 30 - diffDias;
-
-        if (diasRestantes <= 0) {
-            // EXPIROU
-            selosAtuais = 0;
-            localStorage.setItem('vienna_qtd_selos', 0);
-            localStorage.removeItem('vienna_data_primeiro_selo');
-            avisoPrazoHtml = `<span class="aviso-validade">SEUS SELOS EXPIRARAM!</span>
-                              <span class="subtexto-validade">O prazo de 30 dias acabou. Comece um novo cartão!</span>`;
-        } else {
-            avisoPrazoHtml = `<span class="aviso-validade">⚠️ RESTAM ${diasRestantes} DIAS</span>
-                              <span class="subtexto-validade">Complete seu cartão até o dia ${new Date(dataInicio.getTime() + (30 * 24 * 60 * 60 * 1000)).toLocaleDateString()}.</span>`;
-        }
-    } else {
-        avisoPrazoHtml = `<span class="subtexto-validade">O prazo de 30 dias começa a contar a partir do seu 1º selo.</span>`;
-    }
-
-    let selosHtml = '';
-    for (let i = 1; i <= 10; i++) {
-        const ativo = i <= selosAtuais ? 'selo-ativo' : 'selo-vazio';
-        selosHtml += `
-            <div class="caixa-selo ${ativo}">
-                <i class="fa fa-certificate"></i>
-                <span class="num-selo">${i}</span>
+    let html = `<h2 style="margin-bottom:20px;">${cat}</h2>`;
+    cardapioDados[cat].produtos.forEach((p) => {
+        html += `
+            <div class="card-item" onclick="abrirModalManual('${cat}', ${p.id})">
+                <div style="flex:1; padding-right:15px;">
+                    <h3>${p.nome}</h3>
+                    <p style="font-size:0.75rem; color:#666;">${p.desc}</p>
+                    <span class="preco">R$ ${p.preco.toFixed(2).replace('.',',')}</span>
+                </div>
+                <div class="item-foto"><img src="${p.foto}" onerror="this.src='https://via.placeholder.com/100?text=Vienna'"></div>
             </div>`;
-    }
-
-    container.innerHTML = `
-        <div class="painel-fidelidade-vienna">
-            <div class="fidelidade-header">
-                <h2>Meu Cartão Fidelidade</h2>
-                <p>Junte 10 selos e ganhe um Burger!</p>
-            </div>
-            <div class="grid-selos">
-                ${selosHtml}
-            </div>
-            <div class="fidelidade-footer">
-                ${avisoPrazoHtml}
-                <hr style="margin: 15px 0; border: 0; border-top: 1px solid #ddd;">
-                <small>Seu ID: <strong>${meuID}</strong></small>
-            </div>
-        </div>
-    `;
+    });
+    container.innerHTML = html;
 }
 
-function renderizarProdutos(cat) {
-    setTimeout(() => {
-        window.scrollTo(0,0);
-        categoriaAtual = cat;
-        document.getElementById('btn-voltar').style.display = "flex";
-        const container = document.getElementById('conteudo-principal');
-        let html = `<h2>${cat}</h2>`;
-        cardapioDados[cat].produtos.forEach((p, index) => {
-            html += `
-                <div class="card-item" style="animation-delay: ${index * 0.1}s" onclick="abrirModalManual('${cat}', ${p.id})">
-                    <div style="flex:1; padding-right:15px;">
-                        <h3>${p.nome}</h3>
-                        <p style="font-size:0.75rem; color:#666; margin: 4px 0;">${p.desc}</p>
-                        <span class="preco">R$ ${p.preco.toFixed(2).replace('.',',')}</span>
-                    </div>
-                    <div class="item-foto"><img src="${p.foto}" onerror="this.src='https://via.placeholder.com/100?text=Vienna'"></div>
-                </div>`;
-        });
-        container.innerHTML = html;
-    }, 250);
-}
-
+// --- MODAL PRODUTO ---
 function abrirModalManual(cat, id) {
     produtoAtual = cardapioDados[cat].produtos.find(x => x.id === id);
     categoriaAtual = cat; 
@@ -233,7 +188,7 @@ function alterarQtd(v) {
 function atualizarTotalModal() {
     let t = produtoAtual.preco;
     for(let id in adicionaisSelecionados) {
-        t += adicionaisList.find(x => x.id == id).preco * adicionaisSelecionados[id];
+        t += adicionaisList.find(x => x.id == id).preco * (adicionaisSelecionados[id] || 0);
     }
     document.getElementById('btn-total-modal').innerText = `R$ ${(t * qtdPrincipal).toFixed(2).replace('.',',')}`;
 }
@@ -259,6 +214,7 @@ function confirmarAdicao() {
     fecharModalProduto();
 }
 
+// --- CARRINHO ---
 function fecharModalProduto() { document.getElementById('modal-produto').style.display = "none"; }
 function fecharCarrinho() { document.getElementById('modal-carrinho').style.display = "none"; }
 
@@ -269,7 +225,7 @@ function abrirCarrinho() {
         sub += i.total;
         return `<div style="border-bottom:1px solid #eee; padding:12px 0;">
             <div style="display:flex; justify-content:space-between;"><strong>${i.qtd}x ${i.nome}</strong><span>R$ ${i.total.toFixed(2).replace('.',',')}</span></div>
-            <small style="color:var(--vienna-red); display:block;">${i.ads}</small>
+            <small style="color:red; display:block;">${i.ads}</small>
             <small onclick="remover(${idx})" style="color:red; font-weight:bold; cursor:pointer;">REMOVER</small>
         </div>`;
     }).join('');
@@ -284,36 +240,79 @@ function remover(idx) {
     if(carrinho.length === 0) { document.getElementById('cart-fab').style.display = "none"; fecharCarrinho(); } else { abrirCarrinho(); }
 }
 
+// --- WHATSAPP COM FINALIZAÇÃO ---
 function enviarWhatsApp() {
-    const end = document.getElementById('endereco').value;
-    const pag = document.getElementById('pagamento').value;
+    const endereco = document.getElementById('endereco').value;
+    const pagamento = document.getElementById('pagamento').value;
+    const totalTexto = document.getElementById('valor-total').innerText;
     const meuID = localStorage.getItem('vienna_id') || "Sem ID";
+    const nomeCliente = localStorage.getItem('vienna_nome') || "Cliente";
 
-    if(!end) return alert("Informe o endereço!");
+    if(!endereco) return alert("Por favor, informe o endereço!");
 
-    const h = new Date().getHours();
-    const aberto = (h >= 18 || h < 6);
-    
-    let msg = aberto ? `*PEDIDO VIENNA*\n\n` : `*AGENDADO*\n\n`;
+    // Enviar ao Firebase
+    enviarPedidoFidelidade(meuID, endereco, pagamento, totalTexto);
 
+    // Montar mensagem
+    let msg = `*NOVO PEDIDO VIENNA*\n`;
+    msg += `*CLIENTE:* ${nomeCliente}\n\n`;
     carrinho.forEach(i => {
         msg += `*${i.qtd}x ${i.nome}*\n`;
-        if(i.ads) msg += `Ads: ${i.ads}\n`;
-        if(i.obs) msg += `Obs: ${i.obs}\n`;
-        msg += `Sub: R$ ${i.total.toFixed(2).replace('.',',')}\n\n`;
+        if(i.ads) msg += ` - Ads: ${i.ads}\n`;
+        if(i.obs) msg += ` - Obs: ${i.obs}\n`;
     });
+    msg += `\n*Total:* ${totalTexto}\n*Endereço:* ${endereco}\n*Pagamento:* ${pagamento}\n*ID:* ${meuID}`;
 
-    msg += `----------------------------\n`;
-    msg += `*TOTAL:* ${document.getElementById('valor-total').innerText}\n`;
-    msg += `*ENDEREÇO:* ${end}\n`;
-    msg += `*PAGAMENTO:* ${pag}\n`;
-    msg += `----------------------------\n`;
-    msg += `🆔 *ID FIDELIDADE:* ${meuID}\n`;
-    msg += `----------------------------`;
-
+    // Abrir WhatsApp
     window.open(`https://wa.me/${WHATSAPP_CONTATO}?text=${encodeURIComponent(msg)}`);
 
-    // Chame a função de fidelidade aqui se necessário
+    // --- RESET E NOTIFICAÇÃO ---
+    setTimeout(() => {
+        carrinho = [];
+        document.getElementById('cart-count').innerText = "0";
+        document.getElementById('cart-fab').style.display = "none";
+        fecharCarrinho();
+        renderizarCategorias();
+        alert("✅ Pedido realizado com sucesso! Sua mensagem foi enviada.");
+    }, 1000);
+}
+
+// --- FIDELIDADE ---
+async function renderizarPainelFidelidade() {
+    window.scrollTo(0,0);
+    document.getElementById('btn-voltar').style.display = "flex";
+    const container = document.getElementById('conteudo-principal');
+    const meuID = localStorage.getItem('vienna_id');
+    const nomeSalvo = localStorage.getItem('vienna_nome') || "Cliente";
+
+    container.innerHTML = `<div style="text-align:center; padding:50px;"><i class="fa fa-spinner fa-spin fa-2x" style="color:#8b1a1a;"></i><p>Sincronizando...</p></div>`;
+
+    let selosAtuais = 0;
+    if (typeof db !== "undefined" && meuID) {
+        try {
+            const doc = await db.collection("clientes").doc(meuID).get();
+            if (doc.exists) {
+                selosAtuais = doc.data().selos || 0;
+                localStorage.setItem('vienna_qtd_selos', selosAtuais);
+            }
+        } catch (error) {
+            selosAtuais = parseInt(localStorage.getItem('vienna_qtd_selos')) || 0;
+        }
+    }
+
+    let selosHtml = '';
+    for (let i = 1; i <= 10; i++) {
+        selosHtml += `<div class="caixa-selo ${i <= selosAtuais ? 'selo-ativo' : 'selo-vazio'}"><i class="fa fa-certificate"></i><span class="num-selo">${i}</span></div>`;
+    }
+
+    container.innerHTML = `
+        <div class="painel-fidelidade-vienna" style="text-align:center; padding:20px;">
+            <h2 style="color:#8b1a1a;">Olá, ${nomeSalvo}!</h2>
+            <p>Você tem <strong>${selosAtuais}</strong> selos</p>
+            <div class="grid-selos" style="display:grid; grid-template-columns: repeat(5, 1fr); gap:10px; margin:20px 0;">${selosHtml}</div>
+            <small>ID: ${meuID}</small><br><br>
+            <button onclick="renderizarCategorias()" style="padding:10px 20px; background:#666; color:white; border:none; border-radius:10px;">VOLTAR</button>
+        </div>`;
 }
 
 function checkHorario() {
@@ -321,11 +320,11 @@ function checkHorario() {
     const aberto = (h >= 18 || h < 6);
     const st = document.getElementById('status-loja');
     if(st) { 
-        st.innerText = aberto ? "● ABERTO AGORA" : "○ FECHADO (AGENDANDO)"; 
+        st.innerText = aberto ? "● ABERTO" : "○ FECHADO"; 
         st.style.color = aberto ? "#25d366" : "red"; 
     }
-    document.getElementById('aviso-agendamento').style.display = aberto ? "none" : "block";
 }
 
 renderizarCategorias();
 checkHorario();
+document.getElementById('btn-voltar').addEventListener('click', renderizarCategorias);
